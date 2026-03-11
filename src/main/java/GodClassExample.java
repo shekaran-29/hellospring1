@@ -56,7 +56,7 @@ public class GodClassExample {
     private String logFile;
 
     // ==================== DATABASE OPERATIONS ====================
-    
+
     public void initDatabase(String url, String user, String pass) {
         this.dbUrl = url;
         this.dbUser = user;
@@ -91,8 +91,10 @@ public class GodClassExample {
     public String getUserName(String id) {
         try {
             ResultSet rs = statement.executeQuery("SELECT name FROM users WHERE id = '" + id + "'");
-            if (rs.next()) return rs.getString(1);
-        } catch (SQLException e) {}
+            if (rs.next())
+                return rs.getString(1);
+        } catch (SQLException e) {
+        }
         return null;
     }
 
@@ -107,7 +109,7 @@ public class GodClassExample {
     }
 
     // ==================== USER MANAGEMENT ====================
-    
+
     public int createUser(String name, String email, String password) {
         int id = ++userCount;
         users.put(id, name);
@@ -125,7 +127,8 @@ public class GodClassExample {
     }
 
     public boolean updateUser(int id, String name, String email) {
-        if (!users.containsKey(id)) return false;
+        if (!users.containsKey(id))
+            return false;
         users.put(id, name);
         try {
             statement.executeUpdate("UPDATE users SET name='" + name + "', email='" + email + "' WHERE id=" + id);
@@ -148,17 +151,17 @@ public class GodClassExample {
     }
 
     // ==================== AUTHENTICATION ====================
-    
+
     public String login(String username, String password) {
         int attempts = loginAttempts.getOrDefault(username, 0);
         if (attempts >= 5) {
             log("Account locked: " + username);
             return null;
         }
-        
+
         try {
             ResultSet rs = statement.executeQuery(
-                "SELECT id, password FROM users WHERE name = '" + username + "'");
+                    "SELECT id, password FROM users WHERE name = '" + username + "'");
             if (rs.next()) {
                 String storedPass = rs.getString("password");
                 if (storedPass.equals(hashPassword(password))) {
@@ -169,8 +172,9 @@ public class GodClassExample {
                     return session;
                 }
             }
-        } catch (Exception e) {}
-        
+        } catch (Exception e) {
+        }
+
         loginAttempts.put(username, attempts + 1);
         log("Login failed: " + username);
         return null;
@@ -192,10 +196,12 @@ public class GodClassExample {
     // BUG: Weak password hashing
     private String hashPassword(String password) {
         try {
-            if (md5 == null) md5 = MessageDigest.getInstance("MD5");
+            if (md5 == null)
+                md5 = MessageDigest.getInstance("MD5");
             byte[] digest = md5.digest(password.getBytes());
             StringBuilder sb = new StringBuilder();
-            for (byte b : digest) sb.append(String.format("%02x", b));
+            for (byte b : digest)
+                sb.append(String.format("%02x", b));
             return sb.toString();
         } catch (NoSuchAlgorithmException e) {
             return password; // BUG: Returns plain password on failure
@@ -207,7 +213,7 @@ public class GodClassExample {
     }
 
     // ==================== FILE OPERATIONS ====================
-    
+
     // BUG: Path traversal vulnerability
     public String readFile(String filename) {
         try {
@@ -247,13 +253,13 @@ public class GodClassExample {
     }
 
     // ==================== EMAIL OPERATIONS ====================
-    
+
     public boolean sendEmail(String to, String subject, String body) {
         try {
             socket = new Socket(emailHost, 25);
             writer = new PrintWriter(socket.getOutputStream(), true);
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            
+
             writer.println("HELO localhost");
             reader.readLine();
             writer.println("MAIL FROM:<noreply@app.com>");
@@ -268,7 +274,7 @@ public class GodClassExample {
             writer.println(".");
             reader.readLine();
             writer.println("QUIT");
-            
+
             log("Email sent to: " + to);
             // BUG: Socket not closed
             return true;
@@ -289,7 +295,7 @@ public class GodClassExample {
     }
 
     // ==================== CACHING ====================
-    
+
     public void putCache(String key, Object value) {
         if (cacheEnabled) {
             cache.put(key, value);
@@ -313,7 +319,7 @@ public class GodClassExample {
     }
 
     // ==================== CONFIGURATION ====================
-    
+
     public void loadConfig(String filename) {
         try {
             properties.load(new FileInputStream(filename));
@@ -341,7 +347,7 @@ public class GodClassExample {
     }
 
     // ==================== LOGGING ====================
-    
+
     public void log(String message) {
         String entry = dateFormat.format(new Date()) + " - " + message;
         logs.add(entry);
@@ -352,7 +358,8 @@ public class GodClassExample {
                 fw.write(entry + "\n");
                 // BUG: FileWriter not closed
             }
-        } catch (IOException e) {}
+        } catch (IOException e) {
+        }
     }
 
     public void logError(String message) {
@@ -374,7 +381,7 @@ public class GodClassExample {
     }
 
     // ==================== REPORTING ====================
-    
+
     public String generateReport() {
         StringBuilder report = new StringBuilder();
         report.append("=== SYSTEM REPORT ===\n");
@@ -399,7 +406,7 @@ public class GodClassExample {
     }
 
     // ==================== VALIDATION ====================
-    
+
     // BUG: Weak email validation
     public boolean validateEmail(String email) {
         return email != null && email.contains("@");
@@ -420,7 +427,7 @@ public class GodClassExample {
     }
 
     // ==================== NETWORK OPERATIONS ====================
-    
+
     public String httpGet(String urlStr) {
         try {
             URL url = new URL(urlStr);
@@ -439,11 +446,12 @@ public class GodClassExample {
     }
 
     // ==================== UTILITY METHODS ====================
-    
+
     // BUG: Division by zero possible
     public double calculateAverage(int[] numbers) {
         int sum = 0;
-        for (int n : numbers) sum += n;
+        for (int n : numbers)
+            sum += n;
         return sum / numbers.length;
     }
 
@@ -473,11 +481,16 @@ public class GodClassExample {
 
     public void shutdown() {
         try {
-            if (statement != null) statement.close();
-            if (dbConnection != null) dbConnection.close();
-            if (socket != null) socket.close();
-            if (fileIn != null) fileIn.close();
-            if (fileOut != null) fileOut.close();
+            if (statement != null)
+                statement.close();
+            if (dbConnection != null)
+                dbConnection.close();
+            if (socket != null)
+                socket.close();
+            if (fileIn != null)
+                fileIn.close();
+            if (fileOut != null)
+                fileOut.close();
         } catch (Exception e) {
             logError("Shutdown error: " + e.getMessage());
         }
