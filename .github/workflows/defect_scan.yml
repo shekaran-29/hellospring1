@@ -50,8 +50,11 @@ jobs:
 
       - name: Download model files
         run: |
-          gdown ${{secrets.MODEL_URL}} -O java_bug_detector_lightgbm.pkl
-          gdown ${{secrets.SCALER_URL}} -O scaler.pkl
+          echo "Downloading model file..."
+          gdown "${{secrets.MODEL_URL}}" -O java_bug_detector_lightgbm.pkl --fuzzy || echo "Model download failed"
+          echo "Downloading scaler file..."
+          gdown "${{secrets.SCALER_URL}}" -O scaler.pkl --fuzzy || echo "Scaler download failed"
+          ls -la
 
       - name: Verify model files exist
         run: |
@@ -62,7 +65,10 @@ jobs:
           ls -la *.pkl
 
       - name: Download defect scan script
-        run: gdown ${{secrets.PYTHONSCRIPTURL}} -O defect_scan.py
+        run: |
+          echo "Downloading defect scan script..."
+          gdown "${{secrets.PYTHONSCRIPTURL}}" -O defect_scan.py --fuzzy || echo "Script download failed"
+          ls -la defect_scan.py || echo "defect_scan.py not found"
       - name: Debug file
         run: |
           ls -l
