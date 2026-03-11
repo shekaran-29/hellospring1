@@ -25,7 +25,7 @@ jobs:
         id: changed-files
         run: |
           git fetch origin ${{ github.base_ref }}
-          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep "\.java$" || true)
+          FILES=$(git diff --name-only origin/${{ github.base_ref }} | grep "\.java$" || true)
            {
           echo "files<<EOF"
           echo "$FILES"
