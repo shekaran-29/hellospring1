@@ -3,6 +3,11 @@ name: AI Defect Prediction Scan
 
 on:
   workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'Base branch to compare against'
+        required: false
+        default: 'main'
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -16,6 +21,9 @@ jobs:
       pull-requests: write
       contents: read
 
+    env:
+      BASE_REF: ${{ github.base_ref || github.event.inputs.base_branch || 'main' }}
+
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,8 +32,8 @@ jobs:
       - name: Get changed Java files
         id: changed-files
         run: |
-          git fetch origin ${{ github.base_ref }}
-          FILES=$(git diff --name-only origin/${{ github.base_ref }} | grep "\.java$" || true)
+          git fetch origin ${{ env.BASE_REF }}
+          FILES=$(git diff --name-only origin/${{ env.BASE_REF }} | grep "\.java$" || true)
            {
           echo "files<<EOF"
           echo "$FILES"
@@ -46,6 +54,14 @@ jobs:
           gdown ${{secrets.MODEL_URL}} -O java_bug_detector_lightgbm.pkl
           gdown ${{secrets.SCALER_URL}} -O scaler.pkl
     
+      - name: Verify model files exist
+        run: |
+          if [ ! -f "java_bug_detector_lightgbm.pkl" ] || [ ! -f "scaler.pkl" ]; then
+            echo "Model files not found"
+            exit 1
+          fi
+          ls -la *.pkl
+    
         
       - name: Download defect scan script
         run: gdown ${{secrets.PYTHONSCRIPTURL}} -O defect_scan.py
@@ -55,9 +71,13 @@ jobs:
           head -20 defect_scan.py
       - name: Run AI Defect Scan
         run: |
-          git fetch origin ${{ github.base_ref }}
-          FILES=$(git diff --name-only origin/${{ github.base_ref }} | grep "\.java$" | tr '\n' ' ')
+          git fetch origin ${{ env.BASE_REF }}
+          FILES=$(git diff --name-only origin/${{ env.BASE_REF }} | grep "\.java$" | tr '\n' ' ')
           echo "Scanning files: $FILES"
+          if [ -z "$FILES" ]; then
+            echo "No Java files changed"
+            exit 0
+          fi
           python defect_scan.py $FILES
 
       - name: Download comments on PR script
