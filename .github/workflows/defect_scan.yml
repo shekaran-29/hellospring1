@@ -7,8 +7,18 @@ on:
         description: "Base branch to compare against"
         required: false
         default: "main"
+      scan_all:
+        description: "Scan ALL Java files (not just changed)"
+        type: boolean
+        required: false
+        default: true
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - "**.java"
+  push:
+    branches:
+      - "**"
     paths:
       - "**.java"
 
@@ -22,18 +32,26 @@ jobs:
 
     env:
       BASE_REF: ${{ github.base_ref || github.event.inputs.base_branch || 'main' }}
+      SCAN_ALL: ${{ github.event.inputs.scan_all || 'false' }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Get changed Java files
+      - name: Get Java files to scan
         id: changed-files
         run: |
-          git fetch origin ${{ env.BASE_REF }}
-          FILES=$(git diff --name-only origin/${{ env.BASE_REF }} | grep "\.java$" || true)
-           {
+          if [ "${{ env.SCAN_ALL }}" == "true" ] || [ "${{ github.event_name }}" == "push" ]; then
+            echo "Scanning ALL Java files in repository..."
+            FILES=$(find . -name "*.java" -type f | sed 's|^\./||' | tr '\n' ' ')
+          else
+            echo "Scanning changed Java files only..."
+            git fetch origin ${{ env.BASE_REF }} || true
+            FILES=$(git diff --name-only origin/${{ env.BASE_REF }} 2>/dev/null | grep "\.java$" || true)
+          fi
+          echo "Files to scan: $FILES"
+          {
           echo "files<<EOF"
           echo "$FILES"
           echo "EOF"
@@ -75,11 +93,15 @@ jobs:
           head -20 defect_scan.py
       - name: Run AI Defect Scan
         run: |
-          git fetch origin ${{ env.BASE_REF }}
-          FILES=$(git diff --name-only origin/${{ env.BASE_REF }} | grep "\.java$" | tr '\n' ' ')
+          if [ "${{ env.SCAN_ALL }}" == "true" ] || [ "${{ github.event_name }}" == "push" ]; then
+            FILES=$(find . -name "*.java" -type f | sed 's|^\./||' | tr '\n' ' ')
+          else
+            git fetch origin ${{ env.BASE_REF }} || true
+            FILES=$(git diff --name-only origin/${{ env.BASE_REF }} 2>/dev/null | grep "\.java$" | tr '\n' ' ' || true)
+          fi
           echo "Scanning files: $FILES"
           if [ -z "$FILES" ]; then
-            echo "No Java files changed"
+            echo "No Java files found"
             exit 0
           fi
           python defect_scan.py $FILES
