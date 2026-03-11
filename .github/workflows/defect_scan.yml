@@ -1,15 +1,24 @@
-
 name: AI Defect Prediction Scan
 
 on:
   workflow_dispatch:
     inputs:
       base_branch:
-        description: 'Base branch to compare against'
+        description: "Base branch to compare against"
         required: false
-        default: 'main'
+        default: "main"
+      scan_all:
+        description: "Scan ALL Java files (not just changed)"
+        type: boolean
+        required: false
+        default: true
   pull_request:
     types: [opened, synchronize, reopened]
+    paths:
+      - "**.java"
+  push:
+    branches:
+      - "**"
     paths:
       - "**.java"
 
@@ -23,18 +32,26 @@ jobs:
 
     env:
       BASE_REF: ${{ github.base_ref || github.event.inputs.base_branch || 'main' }}
+      SCAN_ALL: ${{ github.event.inputs.scan_all || 'false' }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Get changed Java files
+      - name: Get Java files to scan
         id: changed-files
         run: |
-          git fetch origin ${{ env.BASE_REF }}
-          FILES=$(git diff --name-only origin/${{ env.BASE_REF }} | grep "\.java$" || true)
-           {
+          if [ "${{ env.SCAN_ALL }}" == "true" ] || [ "${{ github.event_name }}" == "push" ]; then
+            echo "Scanning ALL Java files in repository..."
+            FILES=$(find . -name "*.java" -type f | sed 's|^\./||' | tr '\n' ' ')
+          else
+            echo "Scanning changed Java files only..."
+            git fetch origin ${{ env.BASE_REF }} || true
+            FILES=$(git diff --name-only origin/${{ env.BASE_REF }} 2>/dev/null | grep "\.java$" || true)
+          fi
+          echo "Files to scan: $FILES"
+          {
           echo "files<<EOF"
           echo "$FILES"
           echo "EOF"
@@ -42,18 +59,21 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-          
+
       - name: Install dependencies
         run: pip install javalang lightgbm scikit-learn pandas numpy joblib requests
-      
+
       - name: Install gdown
         run: pip install gdown
-      
+
       - name: Download model files
         run: |
-          gdown ${{secrets.MODEL_URL}} -O java_bug_detector_lightgbm.pkl
-          gdown ${{secrets.SCALER_URL}} -O scaler.pkl
-    
+          echo "Downloading model file..."
+          gdown "${{secrets.MODEL_URL}}" -O java_bug_detector_lightgbm.pkl --fuzzy || echo "Model download failed"
+          echo "Downloading scaler file..."
+          gdown "${{secrets.SCALER_URL}}" -O scaler.pkl --fuzzy || echo "Scaler download failed"
+          ls -la
+
       - name: Verify model files exist
         run: |
           if [ ! -f "java_bug_detector_lightgbm.pkl" ] || [ ! -f "scaler.pkl" ]; then
@@ -61,21 +81,27 @@ jobs:
             exit 1
           fi
           ls -la *.pkl
-    
-        
+
       - name: Download defect scan script
-        run: gdown ${{secrets.PYTHONSCRIPTURL}} -O defect_scan.py
+        run: |
+          echo "Downloading defect scan script..."
+          gdown "${{secrets.PYTHONSCRIPTURL}}" -O defect_scan.py --fuzzy || echo "Script download failed"
+          ls -la defect_scan.py || echo "defect_scan.py not found"
       - name: Debug file
         run: |
           ls -l
           head -20 defect_scan.py
       - name: Run AI Defect Scan
         run: |
-          git fetch origin ${{ env.BASE_REF }}
-          FILES=$(git diff --name-only origin/${{ env.BASE_REF }} | grep "\.java$" | tr '\n' ' ')
+          if [ "${{ env.SCAN_ALL }}" == "true" ] || [ "${{ github.event_name }}" == "push" ]; then
+            FILES=$(find . -name "*.java" -type f | sed 's|^\./||' | tr '\n' ' ')
+          else
+            git fetch origin ${{ env.BASE_REF }} || true
+            FILES=$(git diff --name-only origin/${{ env.BASE_REF }} 2>/dev/null | grep "\.java$" | tr '\n' ' ' || true)
+          fi
           echo "Scanning files: $FILES"
           if [ -z "$FILES" ]; then
-            echo "No Java files changed"
+            echo "No Java files found"
             exit 0
           fi
           python defect_scan.py $FILES
