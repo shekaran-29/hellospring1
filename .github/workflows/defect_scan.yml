@@ -1,0 +1,74 @@
+
+name: AI Defect Prediction Scan
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - "**.java"
+
+jobs:
+  defect-scan:
+    runs-on: ubuntu-latest
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed Java files
+        id: changed-files
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep "\.java$" || true)
+           {
+          echo "files<<EOF"
+          echo "$FILES"
+          echo "EOF"
+          } >> $GITHUB_OUTPUT
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          
+      - name: Install dependencies
+        run: pip install javalang lightgbm scikit-learn pandas numpy joblib requests
+      
+      - name: Install gdown
+        run: pip install gdown
+      
+      - name: Download model files
+        run: |
+          gdown ${{secrets.MODEL_URL}} -O java_bug_detector_lightgbm.pkl
+          gdown ${{secrets.SCALER_URL}} -O scaler.pkl
+    
+        
+      - name: Download defect scan script
+        run: gdown ${{secrets.PYTHONSCRIPTURL}} -O defect_scan.py
+      - name: Debug file
+        run: |
+          ls -l
+          head -20 defect_scan.py
+      - name: Run AI Defect Scan
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          FILES=$(git diff --name-only origin/${{ github.base_ref }} | grep "\.java$" | tr '\n' ' ')
+          echo "Scanning files: $FILES"
+          python defect_scan.py $FILES
+
+      - name: Download comments on PR script
+        run: |
+          gdown ${{secrets.PRCOMMENTSCRIPTURL}} -O pr_comment.py
+
+      - name: Comment results on PR
+        if: github.event_name == 'pull_request'
+        run: |
+          python pr_comment.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
