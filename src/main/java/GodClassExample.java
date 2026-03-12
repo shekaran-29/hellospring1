@@ -349,7 +349,7 @@ public class GodClassExample {
     // ==================== LOGGING ====================
 
     public void log(String message) {
-        String entry = dateFormat.format(new Date()) + " - " + message;
+        String entry = dateFormat.format(new java.util.Date()) + " - " + message;
         logs.add(entry);
         System.out.println(entry);
         try {
@@ -385,7 +385,7 @@ public class GodClassExample {
     public String generateReport() {
         StringBuilder report = new StringBuilder();
         report.append("=== SYSTEM REPORT ===\n");
-        report.append("Date: ").append(dateFormat.format(new Date())).append("\n");
+        report.append("Date: ").append(dateFormat.format(new java.util.Date())).append("\n");
         report.append("Users: ").append(userCount).append("\n");
         report.append("Sessions: ").append(sessions.size()).append("\n");
         report.append("Cache size: ").append(cache.size()).append("\n");
